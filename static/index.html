@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赛博告解室 | Cyber Confession Room</title>
+    <style>
+        :root {
+            --accent-teal: #319795;
+            --accent-blue: #4299e1;
+            --bg-light: #f7fafc;
+            --text-main: #2d3748;
+            --glass-bg: rgba(255, 255, 255, 0.9);
+            --border-color: rgba(49, 151, 149, 0.2);
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-light);
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        /* 动态背景 */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: fadeIn 2s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            letter-spacing: 0.5rem;
+            color: var(--accent-teal);
+            margin: 0;
+            font-weight: 300;
+        }
+
+        p.subtitle {
+            font-size: 1rem;
+            color: var(--accent-blue);
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+
+        .chat-box {
+            width: 100%;
+            max-width: 600px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+
+        .message-area {
+            height: 180px;
+            overflow-y: auto;
+            margin-bottom: 1.5rem;
+            font-style: normal;
+            line-height: 1.8;
+            color: var(--text-main);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            opacity: 0.9;
+            white-space: pre-wrap;
+            padding: 0 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-main);
+            padding: 1rem;
+            box-sizing: border-box;
+            resize: none;
+            outline: none;
+            font-size: 1rem;
+            transition: all 0.3s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        textarea:focus {
+            border-color: var(--accent-teal);
+            box-shadow: 0 0 0 3px rgba(49, 151, 149, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            background: var(--accent-teal);
+            border: none;
+            color: white;
+            padding: 0.8rem 3rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 500;
+            letter-spacing: 0.1rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(49, 151, 149, 0.2);
+        }
+
+        button:hover {
+            background: #287e7c;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(49, 151, 149, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            color: #666;
+            text-align: right;
+        }
+
+        /* 消失动效 */
+        .disintegrate {
+            animation: disintegrate 1.5s forwards;
+        }
+
+        @keyframes disintegrate {
+            0% { transform: scale(1); opacity: 1; filter: blur(0); }
+            100% { transform: scale(1.5); opacity: 0; filter: blur(20px); }
+        }
+
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="container">
+        <div class="header">
+            <h1>赛博告解室</h1>
+            <p class="subtitle">让内心的负面情绪与生活中的困难，在此刻化为平静的数字尘埃</p>
+        </div>
+
+        <div class="chat-box" id="app">
+            <div id="display-area" class="message-area">
+                请在此输入你的情绪或困扰，我会聆听并将其格式化。
+            </div>
+
+            <textarea id="input-msg" placeholder="输入你想诉说的话..."></textarea>
+            
+            <div class="controls">
+                <button id="submit-btn">发送并释放</button>
+            </div>
+            <div id="status-info" class="status">系统待命 [v1.0.0-MVP]</div>
+        </div>
+    </div>
+
+    <script>
+        // 背景动画: 星空效果
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Star {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2;
+                this.speed = Math.random() * 0.5;
+            }
+            update() {
+                this.y += this.speed;
+                if (this.y > canvas.height) {
+                    this.y = 0;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+            draw() {
+                ctx.fillStyle = 'rgba(49, 151, 149, ' + (Math.random() * 0.3 + 0.2) + ')';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 100; i++) {
+            stars.push(new Star());
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(247, 250, 252, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(s => {
+                s.update();
+                s.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // 交互逻辑
+        const displayArea = document.getElementById('display-area');
+        const inputMsg = document.getElementById('input-msg');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusInfo = document.getElementById('status-info');
+
+        submitBtn.addEventListener('click', async () => {
+            const message = inputMsg.value.trim();
+            if (!message) return;
+
+            // 1. 触发消失动画
+            inputMsg.classList.add('disintegrate');
+            submitBtn.disabled = true;
+            statusInfo.innerText = "心声上传中 - 正在寻求宁静...";
+
+            setTimeout(async () => {
+                try {
+                    const response = await fetch('/confess', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message })
+                    });
+                    const data = await response.json();
+
+                    if (data.reply) {
+                        displayArea.innerText = data.reply;
+                        statusInfo.innerText = "系统就绪 - 愿你内心平静";
+                    } else {
+                        displayArea.innerText = "赛博空间连接略有波动，请稍后再试。";
+                        statusInfo.innerText = "连接异常";
+                    }
+                } catch (e) {
+                    displayArea.innerText = "无法连接到赛博牧师: " + e.message;
+                    statusInfo.innerText = "连接异常";
+                } finally {
+                    inputMsg.value = "";
+                    inputMsg.classList.remove('disintegrate');
+                    submitBtn.disabled = false;
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
