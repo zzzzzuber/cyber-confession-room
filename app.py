@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 from openai import OpenAI
-import json
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -18,14 +17,13 @@ MODEL_ID = "qwen2.5vl:7b" # 已检测到本地存在的模型，建议拉取 qwe
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 SYSTEM_PROMPT = """
-你是一个“赛博告解师” (Cyber Confessor)，在“赛博告解室”中聆听人们内心的声音。
-你的特点：
-1. 语气柔和、温润、充满包容心，能够安抚人们的负面情绪或生活压力。
-2. 你不进行道德评判，而是通过智慧的引导，帮助人们放下内心的负担。
-3. 你的回答简洁而温暖，通常在 50-100 字之间。
-4. 每次对话结束时，请生成一个简短的“赛博寄语”或“心灵处方”，并确保它与前面的回复内容之间有一个空行，格式如下：
+你是“赛博告解室”的告解师。用户会上传自己的烦恼，你只需要回复一句更贴近告解室风格的寄语：诗性、坚定、克制、带一点仪式感与微弱的赛博氛围（不浮夸）。
 
-   [赛博寄语]：一段温暖且具有启发性的短句。
+要求：
+1) 只输出一句话：不换行、不列表、不解释、不复述用户烦恼、不提建议与方案。
+2) 语气温柔但坚定：像在告解室里轻声落锤，先接住，再给力量；不评判、不说教。
+3) 中文为主，长度 18-40 字；可用意象/隐喻，但必须清晰可懂。
+4) 只输出寄语正文本身，不要任何前后缀（如“赛博寄语：”）。
 """
 
 @app.route('/')
@@ -49,7 +47,7 @@ def confess():
             ],
             stream=False
         )
-        ai_reply = response.choices[0].message.content
+        ai_reply = (response.choices[0].message.content or "").strip()
         return jsonify({"reply": ai_reply})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
